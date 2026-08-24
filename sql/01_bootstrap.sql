@@ -1,0 +1,245 @@
+-- Snowflake Cost Copilot bootstrap
+-- Usage:
+--   USE ROLE <role_with_create_privileges>;
+--   USE DATABASE <target_database>;
+--   CREATE SCHEMA IF NOT EXISTS COST_COPILOT;
+--   !source sql/01_bootstrap.sql
+
+CREATE SCHEMA IF NOT EXISTS COST_COPILOT;
+USE SCHEMA COST_COPILOT;
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.CONFIG (
+  config_key STRING,
+  config_value VARIANT,
+  updated_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_CONFIG PRIMARY KEY (config_key)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.APPROVALS (
+  rec_id STRING,
+  approved BOOLEAN DEFAULT FALSE,
+  approved_by STRING,
+  approved_at TIMESTAMP_LTZ,
+  approval_note STRING,
+  updated_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_TIME (
+  date_key DATE,
+  year NUMBER,
+  month NUMBER,
+  day NUMBER,
+  week NUMBER,
+  day_of_week NUMBER,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_JOB (
+  job_key STRING,
+  query_tag STRING,
+  tag_source STRING,
+  env STRING,
+  model_name STRING,
+  job_name STRING,
+  dag_id STRING,
+  task_id STRING,
+  run_id STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_WAREHOUSE (
+  warehouse_name STRING,
+  warehouse_size STRING,
+  warehouse_type STRING,
+  is_auto_suspend_enabled BOOLEAN,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_USER (
+  user_name STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_ROLE (
+  role_name STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_PIPE (
+  pipe_name STRING,
+  database_name STRING,
+  schema_name STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_TASK (
+  task_name STRING,
+  database_name STRING,
+  schema_name STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.DIM_TABLE (
+  table_key STRING,
+  table_catalog STRING,
+  table_schema STRING,
+  table_name STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.FACT_QUERY (
+  query_id STRING,
+  query_tag STRING,
+  warehouse_name STRING,
+  user_name STRING,
+  role_name STRING,
+  start_time TIMESTAMP_LTZ,
+  end_time TIMESTAMP_LTZ,
+  total_elapsed_time NUMBER,
+  execution_time NUMBER,
+  compilation_time NUMBER,
+  bytes_scanned NUMBER,
+  partitions_scanned NUMBER,
+  partitions_total NUMBER,
+  bytes_spilled_to_local_storage NUMBER,
+  bytes_spilled_to_remote_storage NUMBER,
+  queued_overload_time NUMBER,
+  queued_provisioning_time NUMBER,
+  query_text STRING,
+  load_ts TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_FACT_QUERY PRIMARY KEY (query_id)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.FACT_QUERY_COST (
+  query_id STRING,
+  query_tag STRING,
+  start_time TIMESTAMP_LTZ,
+  credits_attributed_compute FLOAT,
+  credits_used_query_acceleration FLOAT,
+  load_ts TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_FACT_QUERY_COST PRIMARY KEY (query_id)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.FACT_WAREHOUSE_HOURLY (
+  warehouse_name STRING,
+  start_time TIMESTAMP_LTZ,
+  end_time TIMESTAMP_LTZ,
+  credits_used FLOAT,
+  credits_used_compute FLOAT,
+  credits_used_cloud_services FLOAT,
+  avg_running FLOAT,
+  avg_queued_load FLOAT,
+  avg_queued_provisioning FLOAT,
+  avg_blocked FLOAT,
+  load_ts TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_FACT_WAREHOUSE_HOURLY PRIMARY KEY (warehouse_name, start_time)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.FACT_PIPE_DAILY (
+  usage_date DATE,
+  pipe_name STRING,
+  credits_used FLOAT,
+  files_inserted NUMBER,
+  bytes_inserted NUMBER,
+  rows_inserted NUMBER,
+  copy_failure_count NUMBER,
+  copy_success_count NUMBER,
+  small_file_loads NUMBER,
+  load_ts TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_FACT_PIPE_DAILY PRIMARY KEY (usage_date, pipe_name)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.FACT_TASK_DAILY (
+  usage_date DATE,
+  database_name STRING,
+  schema_name STRING,
+  task_name STRING,
+  state STRING,
+  run_count NUMBER,
+  failed_count NUMBER,
+  avg_duration_seconds FLOAT,
+  load_ts TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_FACT_TASK_DAILY PRIMARY KEY (usage_date, database_name, schema_name, task_name, state)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.FACT_STORAGE_DAILY (
+  usage_date DATE,
+  table_catalog STRING,
+  table_schema STRING,
+  table_name STRING,
+  active_bytes NUMBER,
+  time_travel_bytes NUMBER,
+  failsafe_bytes NUMBER,
+  retained_for_clone_bytes NUMBER,
+  load_ts TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_FACT_STORAGE_DAILY PRIMARY KEY (usage_date, table_catalog, table_schema, table_name)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.RECOMMENDATIONS (
+  rec_id STRING,
+  run_id STRING,
+  rule_name STRING,
+  object_type STRING,
+  object_name STRING,
+  recommendation_type STRING,
+  risk STRING,
+  evidence_json VARIANT,
+  suggested_fix STRING,
+  ddl_sql STRING,
+  rollback_sql STRING,
+  est_savings FLOAT,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  status STRING DEFAULT 'OPEN',
+  CONSTRAINT PK_RECOMMENDATIONS PRIMARY KEY (rec_id)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.AI_RECOMMENDATIONS (
+  ai_rec_id STRING,
+  rec_id STRING,
+  ai_mode STRING,
+  ai_summary STRING,
+  ai_root_cause STRING,
+  ai_fix_options_json VARIANT,
+  ai_verification_steps STRING,
+  confidence_score FLOAT,
+  evidence_snapshot VARIANT,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_AI_RECOMMENDATIONS PRIMARY KEY (ai_rec_id)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.ACTION_LOG (
+  action_id STRING,
+  rec_id STRING,
+  mode STRING,
+  action_status STRING,
+  ddl_executed STRING,
+  before_state VARIANT,
+  rollback_sql STRING,
+  verification_query STRING,
+  executor STRING,
+  created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  CONSTRAINT PK_ACTION_LOG PRIMARY KEY (action_id)
+);
+
+CREATE TABLE IF NOT EXISTS COST_COPILOT.STG_QUERY_HISTORY LIKE COST_COPILOT.FACT_QUERY;
+CREATE TABLE IF NOT EXISTS COST_COPILOT.STG_QUERY_ATTRIBUTION_HISTORY LIKE COST_COPILOT.FACT_QUERY_COST;
+CREATE TABLE IF NOT EXISTS COST_COPILOT.STG_WAREHOUSE_METERING_HOURLY LIKE COST_COPILOT.FACT_WAREHOUSE_HOURLY;
+CREATE TABLE IF NOT EXISTS COST_COPILOT.STG_PIPE_DAILY LIKE COST_COPILOT.FACT_PIPE_DAILY;
+CREATE TABLE IF NOT EXISTS COST_COPILOT.STG_TASK_DAILY LIKE COST_COPILOT.FACT_TASK_DAILY;
+CREATE TABLE IF NOT EXISTS COST_COPILOT.STG_STORAGE_DAILY LIKE COST_COPILOT.FACT_STORAGE_DAILY;
+
+MERGE INTO COST_COPILOT.CONFIG t
+USING (
+  SELECT 'SPILL_GB_THRESHOLD' AS config_key, TO_VARIANT(5) AS config_value UNION ALL
+  SELECT 'SCAN_GB_THRESHOLD', TO_VARIANT(100) UNION ALL
+  SELECT 'PRUNING_RATIO_THRESHOLD', TO_VARIANT(0.80) UNION ALL
+  SELECT 'QUEUE_SECONDS_THRESHOLD', TO_VARIANT(60) UNION ALL
+  SELECT 'COMPILE_RATIO_THRESHOLD', TO_VARIANT(0.25) UNION ALL
+  SELECT 'IDLE_CREDITS_PER_HOUR_THRESHOLD', TO_VARIANT(1.5) UNION ALL
+  SELECT 'PIPE_FAILURE_THRESHOLD', TO_VARIANT(5) UNION ALL
+  SELECT 'SMALL_FILE_ROWS_THRESHOLD', TO_VARIANT(5000) UNION ALL
+  SELECT 'USD_PER_CREDIT', TO_VARIANT(3.00) UNION ALL
+  SELECT 'APPLY_WAREHOUSE_ALLOWLIST', PARSE_JSON('["DEV_WH","ANALYTICS_DEV_WH"]')
+) s
+ON t.config_key = s.config_key
+WHEN NOT MATCHED THEN INSERT (config_key, config_value) VALUES (s.config_key, s.config_value);

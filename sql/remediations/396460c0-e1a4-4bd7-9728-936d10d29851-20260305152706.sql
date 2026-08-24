@@ -1,0 +1,1 @@
+-- LLM could not generate DDL automatically for this recommendation.

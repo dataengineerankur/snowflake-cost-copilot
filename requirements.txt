@@ -1,0 +1,5 @@
+snowflake-connector-python
+fastapi
+uvicorn
+streamlit
+pytest

@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: radial-gradient(circle at 20% 20%, #0b1120, #020617 45%, #02030a);
+  color: #e2e8f0;
+}
+
+.panel {
+  @apply bg-panel/70 border border-slate-700 rounded-xl p-4 backdrop-blur;
+}

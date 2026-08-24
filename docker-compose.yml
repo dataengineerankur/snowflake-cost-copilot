@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  api:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: bash -lc "pip install -r requirements.txt && python -m uvicorn python.chat_api:app --host 0.0.0.0 --port 8000"
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+
+  ui:
+    image: node:20
+    working_dir: /app/web
+    volumes:
+      - ./:/app
+    command: bash -lc "npm install && npm run dev"
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api

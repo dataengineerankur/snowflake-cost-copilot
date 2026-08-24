@@ -1,0 +1,10 @@
+snowflake_account       = "WBZTWSY-KH99814"
+snowflake_user          = "PATCHIT"
+snowflake_password      = "Tata8237552399"
+snowflake_authenticator = "Snowflake"
+snowflake_role          = "ACCOUNTADMIN"
+snowflake_bootstrap_warehouse = "COMPUTE_WH"
+
+database_name           = "COST_COPILOT_DB"
+warehouse_name          = "COST_COPILOT_LAB_WH"
+warehouse_size          = "MEDIUM"
