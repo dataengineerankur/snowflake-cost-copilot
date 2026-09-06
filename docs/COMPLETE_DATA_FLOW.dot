@@ -1,0 +1,182 @@
+digraph SnowflakeCostCopilotFlow {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=1.0;
+    ranksep=1.5;
+
+    node [shape=box, style=filled, margin="0.3,0.2"];
+
+    // ==================== LAYER 1: DATA SOURCES ====================
+    subgraph cluster_sources {
+        label="LAYER 1: Data Sources (SNOWFLAKE.ACCOUNT_USAGE)";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#0288D1";
+
+        qh [label="QUERY_HISTORY", fillcolor="#81D4FA"];
+        qah [label="QUERY_ATTRIBUTION_HISTORY", fillcolor="#81D4FA"];
+        wmh [label="WAREHOUSE_METERING_HISTORY", fillcolor="#81D4FA"];
+        wlh [label="WAREHOUSE_LOAD_HISTORY", fillcolor="#81D4FA"];
+        puh [label="PIPE_USAGE_HISTORY", fillcolor="#81D4FA"];
+        ch [label="COPY_HISTORY", fillcolor="#81D4FA"];
+        th [label="TASK_HISTORY", fillcolor="#81D4FA"];
+        sh [label="TABLE_STORAGE_METRICS", fillcolor="#81D4FA"];
+    }
+
+    // ==================== LAYER 2: STAGING TABLES ====================
+    subgraph cluster_staging {
+        label="LAYER 2: Staging Tables (STG_*) - MERGE Upsert Pattern";
+        style=filled;
+        fillcolor="#FFF3E0";
+        color="#F57C00";
+
+        stg_qh [label="STG_QUERY_HISTORY", fillcolor="#FFB74D"];
+        stg_qah [label="STG_QUERY_ATTRIBUTION_HISTORY", fillcolor="#FFB74D"];
+        stg_wmh [label="STG_WAREHOUSE_METERING_HOURLY", fillcolor="#FFB74D"];
+        stg_ph [label="STG_PIPE_DAILY", fillcolor="#FFB74D"];
+        stg_th [label="STG_TASK_DAILY", fillcolor="#FFB74D"];
+        stg_sh [label="STG_STORAGE_DAILY", fillcolor="#FFB74D"];
+    }
+
+    // ==================== LAYER 3: FACT TABLES ====================
+    subgraph cluster_facts {
+        label="LAYER 3: Fact Tables";
+        style=filled;
+        fillcolor="#E8F5E9";
+        color="#43A047";
+
+        fact_q [label="FACT_QUERY\ngrain: query_id\ncolumns: elapsed_time\nbytes_scanned, spilled\nqueue_time, compile_time",
+                fillcolor="#AED581"];
+
+        fact_qc [label="FACT_QUERY_COST\ngrain: query_id\ncolumns: credits_attributed\nquery_acceleration",
+                fillcolor="#AED581"];
+
+        fact_wh [label="FACT_WAREHOUSE_HOURLY\ngrain: warehouse and hour\ncolumns: credits_used\navg_running, avg_queued",
+                fillcolor="#AED581"];
+
+        fact_ph [label="FACT_PIPE_DAILY\ngrain: pipe and day\ncolumns: credits_used\nfiles_inserted\nfailure_count",
+                fillcolor="#AED581"];
+
+        fact_th [label="FACT_TASK_DAILY\ngrain: task and day\ncolumns: run_count\nfailed_count, avg_duration",
+                fillcolor="#AED581"];
+
+        fact_sh [label="FACT_STORAGE_DAILY\ngrain: table and day\ncolumns: active_bytes\ntime_travel_bytes",
+                fillcolor="#AED581"];
+    }
+
+    // ==================== LAYER 4: DIMENSION TABLES ====================
+    subgraph cluster_dims {
+        label="LAYER 4: Dimension Tables (DIM_*)";
+        style=filled;
+        fillcolor="#F3E5F5";
+        color="#7B1FA2";
+
+        dim_job [label="DIM_JOB\nfrom QUERY_TAG\njob_name, dag_id\ntask_id, env", fillcolor="#CE93D8"];
+        dim_wh [label="DIM_WAREHOUSE\nwarehouse_name\nsize, type", fillcolor="#CE93D8"];
+        dim_user [label="DIM_USER\nuser_name", fillcolor="#CE93D8"];
+        dim_role [label="DIM_ROLE\nrole_name", fillcolor="#CE93D8"];
+        dim_owner [label="DIM_OWNER\nowner_name, team\nenvironment", fillcolor="#CE93D8"];
+        dim_pipe [label="DIM_PIPE\npipe_name\ndatabase, schema", fillcolor="#CE93D8"];
+        dim_task [label="DIM_TASK\ntask_name\ndatabase, schema", fillcolor="#CE93D8"];
+    }
+
+    // ==================== LAYER 5: ANALYSIS ====================
+    subgraph cluster_analysis {
+        label="LAYER 5: Analysis and Output";
+        style=filled;
+        fillcolor="#FCE4EC";
+        color="#C2185B";
+
+        rec [label="RECOMMENDATIONS\nRules Engine Output\nrecommendation_type\nevidence_json, ddl_sql\nest_savings, risk",
+             fillcolor="#F48FB1"];
+
+        ai_rec [label="AI_RECOMMENDATIONS\nLLM Grounded Output\nai_summary\nai_root_cause\nconfidence_score",
+                fillcolor="#F48FB1"];
+
+        action_log [label="ACTION_LOG\nApplied Actions\nddl_executed\nbefore_state, rollback_sql\noutcome",
+                   fillcolor="#F48FB1"];
+
+        anomalies [label="ANOMALIES\nAnomalyDetector\nseverity, anomaly_score\nbaseline_value",
+                  fillcolor="#F48FB1"];
+    }
+
+    // ==================== LAYER 6: VIEWS ====================
+    subgraph cluster_views {
+        label="LAYER 6: Query Views (V_*)";
+        style=filled;
+        fillcolor="#E0F2F1";
+        color="#00796B";
+
+        v_heavy [label="V_HEAVY_TAGS_7D\nTop costly jobs", fillcolor="#80CBC4"];
+        v_spill [label="V_QUERY_WASTE_SIGNALS\nSpill anomalies", fillcolor="#80CBC4"];
+        v_warehouse [label="V_WAREHOUSE_IDLE\nIdle burn signals", fillcolor="#80CBC4"];
+        v_pipe [label="V_PIPE_HEALTH\nPipe failures", fillcolor="#80CBC4"];
+        v_topRec [label="V_TOP_RECOMMENDATIONS\nRanked by impact", fillcolor="#80CBC4"];
+    }
+
+    // ==================== LAYER 7: RAG AND CHAT ====================
+    subgraph cluster_rag {
+        label="LAYER 7: RAG Indexing and Chat";
+        style=filled;
+        fillcolor="#EFEBE9";
+        color="#5D4037";
+
+        rag_docs [label="RAG_DOCUMENTS\nIndexed copilot schema", fillcolor="#D7CCC8"];
+        rag_chunks [label="RAG_CHUNKS\nSemantic embeddings", fillcolor="#D7CCC8"];
+        chat [label="CHAT API\nMulti-Agent Pipeline\nPlanner Analyst Responder", fillcolor="#D7CCC8"];
+    }
+
+    // ==================== DATA FLOW: SOURCES -> STAGING ====================
+    qh -> stg_qh [label="MERGE", color="#0288D1", penwidth=2];
+    qah -> stg_qah [label="MERGE", color="#0288D1", penwidth=2];
+    wmh -> stg_wmh [label="MERGE", color="#0288D1", penwidth=2];
+    puh -> stg_ph [label="MERGE", color="#0288D1", penwidth=2];
+    th -> stg_th [label="MERGE", color="#0288D1", penwidth=2];
+    sh -> stg_sh [label="MERGE", color="#0288D1", penwidth=2];
+
+    // ==================== STAGING -> FACTS ====================
+    stg_qh -> fact_q [label="INSERT", color="#43A047", penwidth=2];
+    stg_qah -> fact_qc [label="INSERT", color="#43A047", penwidth=2];
+    stg_wmh -> fact_wh [label="INSERT", color="#43A047", penwidth=2];
+    stg_ph -> fact_ph [label="INSERT", color="#43A047", penwidth=2];
+    stg_th -> fact_th [label="INSERT", color="#43A047", penwidth=2];
+    stg_sh -> fact_sh [label="INSERT", color="#43A047", penwidth=2];
+
+    // ==================== FACT -> DIMENSION ====================
+    fact_q -> dim_job [label="parse QUERY_TAG", color="#7B1FA2", style=dashed];
+    fact_q -> dim_wh [label="warehouse ref", color="#7B1FA2", style=dashed];
+    fact_q -> dim_user [label="user ref", color="#7B1FA2", style=dashed];
+    fact_q -> dim_role [label="role ref", color="#7B1FA2", style=dashed];
+    fact_wh -> dim_wh [label="warehouse ref", color="#7B1FA2", style=dashed];
+    fact_ph -> dim_pipe [label="pipe ref", color="#7B1FA2", style=dashed];
+    fact_th -> dim_task [label="task ref", color="#7B1FA2", style=dashed];
+    dim_job -> dim_owner [label="team mapping", color="#7B1FA2", style=dashed];
+
+    // ==================== FACTS -> ANALYSIS ====================
+    fact_q -> rec [label="rules engine", color="#C2185B", penwidth=2];
+    fact_qc -> rec [label="cost metrics", color="#C2185B", penwidth=2];
+    fact_wh -> rec [label="warehouse load", color="#C2185B", penwidth=2];
+    fact_ph -> rec [label="pipe metrics", color="#C2185B", penwidth=2];
+    fact_q -> anomalies [label="baseline", color="#C2185B", penwidth=2];
+
+    // ==================== REC -> AI AND ACTION ====================
+    rec -> ai_rec [label="evidence json", color="#D32F2F", penwidth=2];
+    rec -> action_log [label="apply or dryrun", color="#D32F2F", penwidth=2];
+
+    // ==================== VIEWS POPULATION ====================
+    fact_q -> v_heavy [color="#00796B", penwidth=1.5];
+    fact_q -> v_spill [color="#00796B", penwidth=1.5];
+    fact_wh -> v_warehouse [color="#00796B", penwidth=1.5];
+    fact_ph -> v_pipe [color="#00796B", penwidth=1.5];
+    rec -> v_topRec [color="#00796B", penwidth=1.5];
+
+    // ==================== RAG INDEXING ====================
+    fact_q -> rag_docs [label="indexed", color="#5D4037", style=dotted];
+    rec -> rag_docs [label="indexed", color="#5D4037", style=dotted];
+    rag_docs -> rag_chunks [label="semantic split", color="#5D4037", penwidth=1.5];
+
+    // ==================== CHAT ====================
+    rag_chunks -> chat [label="context retrieval", color="#5D4037", penwidth=2];
+    v_heavy -> chat [label="fallback", color="#5D4037", penwidth=1.5];
+    v_topRec -> chat [label="recommendations", color="#5D4037", penwidth=1.5];
+}
